@@ -87,7 +87,7 @@ bcs = [
     *[("Internal Heat Gen" if i == 0 else "", n, f"{q:,.0f} W/m^3")
       for i, (n, q) in enumerate(zip(NAMES, Q_GEN))],
     ("Convection", "inside faces", f"h {H_I:g} W/m^2C, ambient {CF(T_a)}"),
-    ("Radiation", "inside faces", "Surface to Surface, Perfect, Enclosure 1"),
+    ("Radiation", "inside faces", f"Surface to Surface, Perfect, Enclosure 1, ambient {CF(T_w)}"),
     ("", "", f"e: FR4 {E_FR4:g}, Al {E_AL:g}, steel {E_STEEL:g}"),
 ]
 for bc, scope, value in bcs:
