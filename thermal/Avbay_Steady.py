@@ -13,12 +13,12 @@ PCB = {"C6": (4.57134, 0.01451, 2.1857e-5),
        "G6": (0.53077, 0.01451, 2.1876e-5),
        "ENIAC": (6.8786, 0.00587, 9.3937e-6)}
 
-T_AMB_C = 42.0                    # air [C]
+T_AMB_C = 42.0                    # air, DTEG App. G max (108 F) [C]
 T_GND_C = 60.0                    # ground [C]
 G_B, G_D = 1000.0, 100.0          # direct, diffuse sun [W/m^2]
 BETA_DEG = 45.0                   # sun elevation [deg]
 RHO_G = 0.30                      # ground albedo [-]
-H_O, H_I = 10.0, 3.0              # outside, inside convection [W/m^2 K]
+H_O, H_I = 10.0, 3.0              # outside (3 mph, below DTEG 11 mph avg), inside convection [W/m^2 K]
 A_O, A_W = 0.245, 0.268           # outer tube, inner wall area [m^2]
 L_WALL = 0.175 * 0.0254           # wall thickness [m]
 K_FR4 = 0.29                      # FR4 conductivity [W/m K]

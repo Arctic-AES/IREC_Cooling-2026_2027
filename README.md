@@ -18,7 +18,8 @@ python thermal/Avbay_Steady.py
 
 All inputs are at the top of the script with units. Internal heat generation is each board's watts divided by its Ansys body volume, so it applies exactly those watts in Ansys.
 
-### Current inputs to confirm
+### Inputs
+- Air 42 C (108 F): the maximum in the 2026 IREC DTEG, Appendix G (average high 33-35 C).
+- Outside convection h = 10 W/m^2 K is about a 3 mph breeze, below the DTEG average wind of 11-12 mph, so it errs hot. At the average wind (h = 21) the boards run about 5-7 C cooler.
 - Board heat (C6 4.57 W, G6 0.53 W, ENIAC 6.88 W) is a datasheet-based worst case (8.4 V battery, radio transmitting), not measured.
-- 42 C air is the IREC design value; check it against DTEG Appendix G.
 - The 1D model treats each board as seeing only the bay wall, so Ansys will likely show the hottest board somewhat hotter.
