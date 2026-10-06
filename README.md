@@ -17,10 +17,17 @@ It prints, for each case:
 - Board heat (C6 4.73 W, G6 0.69 W, ENIAC 6.64 W) is a datasheet-based worst case (8.4 V battery, radio transmitting), checked part by part against each datasheet, not measured. ENIAC drops to 5.52 W with the radio idle.
 
 ### Cases
-| Case | Air | Wind (h_o) | Sun | ENIAC | C6 / G6 / ENIAC |
-|---|---|---|---|---|---|
-| Worst | 42 C, DTEG max | 3 mph (10 W/m^2 K) | full | transmitting, 8.4 V, 6.64 W | 77.8 / 65.5 / 108.6 C |
-| Median | 34 C, DTEG average high | 11.6 mph DTEG average (21.6) | full | idle, 7.4 V, 4.87 W | 62.9 / 49.4 / 84.7 C |
-| Low | 20.5 C, DTEG average low | 11.6 mph (22.0) | none | idle, 7.4 V, 4.87 W | 41.4 / 25.8 / 66.2 C |
+| Case | Air | Wind (h_o) | Sun | C6 heat | G6 heat | ENIAC heat |
+|---|---|---|---|---|---|---|
+| Worst | 42 C, DTEG max | 3 mph (10 W/m^2 K) | full | 4.73 W | 0.69 W | 6.64 W, transmitting at 8.4 V |
+| Median | 34 C, DTEG average high | 11.6 mph DTEG average (21.6) | full | 4.73 W | 0.69 W | 4.87 W, idle at 7.4 V |
+| Low | 20.5 C, DTEG average low | 11.6 mph (22.0) | none | 4.73 W | 0.69 W | 4.87 W, idle at 7.4 V |
+
+### Results
+| Case | Bay air | C6 | G6 | ENIAC |
+|---|---|---|---|---|
+| Worst | 65.4 C (149.6 F) | 77.8 C (172.0 F) | 65.5 C (149.9 F) | 108.6 C (227.5 F) |
+| Median | 48.9 C (120.0 F) | 62.9 C (145.3 F) | 49.4 C (121.0 F) | 84.7 C (184.5 F) |
+| Low | 24.9 C (76.9 F) | 41.4 C (106.5 F) | 25.8 C (78.4 F) | 66.2 C (151.2 F) |
 
 Ground temperature is a placeholder (worst 60 C, median 52 C, low equal to air) until NASA satellite readings for the launch site replace it.
