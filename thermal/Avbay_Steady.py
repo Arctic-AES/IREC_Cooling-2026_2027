@@ -9,9 +9,9 @@ from scipy.optimize import brentq, fsolve
 SIG = 5.670e-8                    # Stefan-Boltzmann constant [W/m^2 K^4]
 
 # PCBs: heat [W], one-face area (KiCad) [m^2], Ansys body volume (Details > Volume) [m^3]
-PCB = {"C6": (4.57134, 0.01451, 2.1857e-5),
-       "G6": (0.53077, 0.01451, 2.1876e-5),
-       "ENIAC": (6.8786, 0.00587, 9.3937e-6)}
+PCB = {"C6": (4.72697, 0.01451, 2.1857e-5),
+       "G6": (0.69118, 0.01451, 2.1876e-5),
+       "ENIAC": (6.64315, 0.00587, 9.3937e-6)}
 
 T_AMB_C = 42.0                    # air, DTEG App. G max (108 F) [C]
 T_GND_C = 60.0                    # ground [C]

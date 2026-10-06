@@ -14,4 +14,4 @@ It prints:
 ### Inputs
 - Air 42 C (108 F): the maximum in the 2026 IREC DTEG, Appendix G (average high 33-35 C).
 - Outside convection h = 10 W/m^2 K is about a 3 mph breeze, below the DTEG average wind of 11-12 mph, so it errs hot. At the average wind (h = 21) the boards run about 5-7 C cooler.
-- Board heat (C6 4.57 W, G6 0.53 W, ENIAC 6.88 W) is a datasheet-based worst case (8.4 V battery, radio transmitting), not measured.
+- Board heat (C6 4.73 W, G6 0.69 W, ENIAC 6.64 W) is a datasheet-based worst case (8.4 V battery, radio transmitting), checked part by part against each datasheet, not measured. ENIAC drops to 5.52 W with the radio idle.
