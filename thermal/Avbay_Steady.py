@@ -14,14 +14,14 @@ NAMES = ["C6", "G6", "ENIAC"]
 A = 2 * np.array([0.01451, 0.01451, 0.00587])          # both faces [m^2]
 V = np.array([2.1857e-5, 2.1876e-5, 9.3937e-6])        # [m^3]
 
-BETA_DEG = 45.0                   # sun elevation [deg]
-RHO_G = 0.30                      # ground albedo [-]
-H_I = 3.0                         # inside convection [W/m^2 K]
+BETA_DEG = 45.0                   # sun elevation, assumed [deg]
+RHO_G = 0.40                      # ground albedo, desert sand (Wikipedia, Albedo) [-]
+H_I = 3.0                         # inside convection, assumed; Churchill-Chu gives 2.1-5.5 [W/m^2 K]
 A_O, A_W = 0.245, 0.268           # outer tube, inner wall area [m^2]
 L_WALL = 0.175 * 0.0254           # wall thickness [m]
-K_FR4 = 0.29                      # FR4 conductivity [W/m K]
-A_PAINT, E_PAINT = 0.60, 0.90     # paint absorptivity, emissivity [-]
-E_FR4, E_AL, E_STEEL = 0.90, 0.20, 0.35   # emissivity [-]
+K_FR4 = 0.29                      # FR4 through-plane conductivity (Wikipedia, FR-4) [W/m K]
+A_PAINT, E_PAINT = 0.60, 0.90     # paint absorptivity, emissivity, assumed until paint is chosen [-]
+E_FR4 = 0.90                      # FR4 emissivity, non-metal (FLIR) [-]
 
 
 def C2K(T): return T + 273.15
@@ -84,7 +84,7 @@ def report(title, r):
           for i, (n, q) in enumerate(zip(NAMES, Q_GEN))],
         ("Convection", "inside faces", f"h {H_I:g} W/m^2C, ambient {CF(r['T_a'])}"),
         ("Radiation", "inside faces", f"Surface to Surface, Perfect, Enclosure 1, ambient {CF(r['T_w'])}"),
-        ("", "", f"e: FR4 {E_FR4:g}, Al {E_AL:g}, steel {E_STEEL:g}"),
+        ("", "", f"e: FR4 {E_FR4:g}"),
     ]
     for bc, scope, value in bcs:
         print(f"  {bc:<20}{scope:<14}{value}")
@@ -93,15 +93,15 @@ def report(title, r):
 # Worst case: DTEG max air, 3 mph wind, full sun, ENIAC transmitting at 8.4 V
 T_AMB_C = 42.0                    # air, DTEG App. G max (108 F) [C]
 T_GND_C = 60.0                    # ground, placeholder until NASA launch-site data [C]
-G_B, G_D = 1000.0, 100.0          # direct, diffuse sun [W/m^2]
-H_O = 10.0                        # outside convection, 3 mph (Churchill-Bernstein) [W/m^2 K]
+G_B, G_D = 900.0, 100.0           # direct (ASTM G173 AM1.5 direct), diffuse (assumed) sun [W/m^2]
+H_O = 10.0                        # outside convection, assumed 3 mph wind (Churchill-Bernstein) [W/m^2 K]
 P_PCB = [4.72649, 0.69056, 6.64315]   # C6, G6, ENIAC heat [W]
 report("WORST CASE", solve(T_AMB_C, T_GND_C, G_B, G_D, H_O, P_PCB))
 
 # Median: DTEG average high, average wind, full sun, ENIAC idle at nominal 7.4 V
 T_AMB_C = 34.0                    # air, DTEG App. G average high 33-35 C [C]
 T_GND_C = 52.0                    # ground, same 18 C over air as worst case, placeholder [C]
-G_B, G_D = 1000.0, 100.0          # direct, diffuse sun [W/m^2]
+G_B, G_D = 900.0, 100.0           # direct (ASTM G173 AM1.5 direct), diffuse (assumed) sun [W/m^2]
 H_O = 21.6                        # outside convection, 11.6 mph DTEG average (Churchill-Bernstein) [W/m^2 K]
 P_PCB = [4.72649, 0.69056, 7.4 * 0.65767]   # ENIAC idle: 7.4 V x 0.658 A [W]
 report("MEDIAN CASE", solve(T_AMB_C, T_GND_C, G_B, G_D, H_O, P_PCB))

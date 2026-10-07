@@ -14,6 +14,8 @@ It prints, for each case:
 ### Inputs
 - Air 42 C (108 F): the maximum in the 2026 IREC DTEG, Appendix G (average high 33-35 C).
 - Outside convection h = 10 W/m^2 K is about a 3 mph breeze, below the DTEG average wind of 11-12 mph, so it errs hot. At the average wind (h = 21) the boards run about 5-7 C cooler.
+- Sun: direct 900 W/m^2 from the ASTM G173 AM1.5 direct reference spectrum; diffuse 100 W/m^2 and 45 deg elevation are assumed. Ground albedo 0.40 (desert sand, Wikipedia "Albedo").
+- Paint absorptivity 0.60 and emissivity 0.90 are assumed until the airframe paint is chosen. Inside h = 3 W/m^2 K is assumed (Churchill-Chu gives 2.1-5.5).
 - Board heat (C6 4.73 W, G6 0.69 W, ENIAC 6.64 W) is a datasheet-based worst case (8.4 V battery, radio transmitting), checked part by part against each datasheet, not measured. ENIAC drops to 5.52 W with the radio idle.
 
 ### Cases
@@ -26,8 +28,8 @@ It prints, for each case:
 ### Results
 | Case | Bay air | C6 | G6 | ENIAC |
 |---|---|---|---|---|
-| Worst | 65.4 C (149.6 F) | 77.8 C (172.0 F) | 65.5 C (149.9 F) | 108.6 C (227.5 F) |
-| Median | 48.9 C (120.0 F) | 62.9 C (145.3 F) | 49.4 C (121.0 F) | 84.7 C (184.5 F) |
+| Worst | 65.5 C (149.9 F) | 77.9 C (172.2 F) | 65.6 C (150.2 F) | 108.7 C (227.7 F) |
+| Median | 48.9 C (120.1 F) | 63.0 C (145.4 F) | 49.5 C (121.1 F) | 84.8 C (184.7 F) |
 | Low | 24.9 C (76.9 F) | 41.4 C (106.5 F) | 25.8 C (78.4 F) | 66.2 C (151.2 F) |
 
 Ground temperature is a placeholder (worst 60 C, median 52 C, low equal to air) until NASA satellite readings for the launch site replace it.
