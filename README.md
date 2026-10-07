@@ -12,11 +12,25 @@ It prints, for each case:
 - the matching Ansys Steady-State Thermal boundary conditions
 
 ### Inputs
-- Air 42 C (108 F): the maximum in the 2026 IREC DTEG, Appendix G (average high 33-35 C).
-- Outside convection h = 10 W/m^2 K is about a 3 mph breeze, below the DTEG average wind of 11-12 mph, so it errs hot. At the average wind (h = 21) the boards run about 5-7 C cooler.
-- Sun: direct 900 W/m^2 from the ASTM G173 AM1.5 direct reference spectrum; diffuse 100 W/m^2 and 45 deg elevation are assumed. Ground albedo 0.40 (desert sand, Wikipedia "Albedo").
-- Paint absorptivity 0.60 and emissivity 0.90 are assumed until the airframe paint is chosen. Inside h = 3 W/m^2 K is assumed (Churchill-Chu gives 2.1-5.5).
-- Board heat (C6 4.73 W, G6 0.69 W, ENIAC 6.64 W) is a datasheet-based worst case (8.4 V battery, radio transmitting), checked part by part against each datasheet, not measured. ENIAC drops to 5.52 W with the radio idle.
+| Input | Value | Source |
+|---|---|---|
+| Air temperature | 42 C (108 F) worst, 34 C median, 20.5 C low | 2026 IREC DTEG V1.1, Appendix G: maximum, average high 33-35 C, average low 19-22 C [1] |
+| Wind | 3 mph worst (assumed, errs hot); 11.6 mph median and low | DTEG Appendix G average 11.4-11.8 mph [1]; NOAA Midland June-August mean 13-14 mph [2] |
+| Outside h | 10 W/m^2 K at 3 mph, 21.6-22.0 at 11.6 mph | Churchill-Bernstein correlation [3] |
+| Direct sun | 900 W/m^2 | ASTM G173 AM1.5 direct reference spectrum [4] |
+| Diffuse sun, sun elevation | 100 W/m^2, 45 deg | Assumed |
+| Ground albedo | 0.40 | Desert sand [5] |
+| Sky temperature | 0.0552 T_air^1.5 | Swinbank (1963) [6] |
+| Ground temperature | 60 C worst, 52 C median, air temperature low | Placeholder until NASA POWER data for the launch site [7] |
+| Paint absorptivity, emissivity | 0.60, 0.90 | Assumed until the airframe paint is chosen |
+| FR4 emissivity | 0.90 | Non-metal surfaces [8] |
+| FR4 conductivity | 0.29 W/m K | Through-plane value [9] |
+| Inside h | 3 W/m^2 K | Assumed one value for all inside faces; Churchill-Chu gives 2.1-5.5 [3] |
+| Air properties | Table A.4, corrected to 91.24 kPa | Incropera [3] |
+| Geometry | tube areas 0.245 / 0.268 m^2, wall 0.175 in, board faces and volumes | Team CAD, KiCad Edge.Cuts, Ansys Details > Volume (team remeasuring boards) |
+| Board heat | C6 4.73 W, G6 0.69 W, ENIAC 6.64 W (5.52 W idle) | Part by part from each datasheet [10] and the team KiCad netlist; not measured |
+
+Board heat still holds estimates: BMT321 transmit current and 40% efficiency (datasheet unreachable), buck efficiency at 8.4 V (read off the 12 V curve), RS-422 output (read off a datasheet graph), microSD write current, firmware clock speeds and 100% transmit. A bench current measurement at 8.4 V replaces all of them.
 
 ### Cases
 | Case | Air | Wind (h_o) | Sun | C6 heat | G6 heat | ENIAC heat |
@@ -32,4 +46,14 @@ It prints, for each case:
 | Median | 48.9 C (120.1 F) | 63.0 C (145.4 F) | 49.5 C (121.1 F) | 84.8 C (184.7 F) |
 | Low | 24.9 C (76.9 F) | 41.4 C (106.5 F) | 25.8 C (78.4 F) | 66.2 C (151.2 F) |
 
-Ground temperature is a placeholder (worst 60 C, median 52 C, low equal to air) until NASA satellite readings for the launch site replace it.
+### Sources
+1. ESRA, 2026 IREC Design, Test & Evaluation Guide V1.1, Appendix G. https://www.soundingrocket.org/what-is-irec.html
+2. NOAA NCEI, Engineering Weather Data, Midland TX. https://www.ncei.noaa.gov/pub/data/EngineeringWeatherData_CDROM/engwx/midland_tx.pdf
+3. Bergman, Lavine, Incropera, DeWitt, Fundamentals of Heat and Mass Transfer, 7th ed., Wiley: ch. 1, 3, 7 (Churchill-Bernstein), 9 (Churchill-Chu), 13, Table A.4.
+4. PVEducation, Standard Solar Spectra (ASTM G173). https://www.pveducation.org/node/430
+5. Wikipedia, Albedo. https://en.wikipedia.org/wiki/Albedo
+6. Swinbank, W.C. (1963), Long-wave radiation from clear skies, Q. J. R. Meteorol. Soc. 89, 339-348. https://doi.org/10.1002/qj.49708938105
+7. NASA POWER climatology, launch site 31.05 N, 103.55 W. https://power.larc.nasa.gov/api/temporal/climatology/point?parameters=TS_MAX,T2M_MAX,ALLSKY_SRF_ALB&community=RE&longitude=-103.5473&latitude=31.0498&format=JSON
+8. FLIR, What emissivity settings should I use when looking at PCBs and electronics? https://www.flir.com/en-ca/support/instruments2/what-emissivity-settings-should-i-use-when-looking-at-pcbs-and-electronics/
+9. Wikipedia, FR-4. https://en.wikipedia.org/wiki/FR-4
+10. Datasheets: TL780 https://www.ti.com/lit/ds/symlink/tl780.pdf, TPS563200 https://www.ti.com/lit/ds/symlink/tps563200.pdf, TLV1117LV https://www.ti.com/lit/pdf/SBVS160, LMX2541 https://www.ti.com/lit/ds/symlink/lmx2541.pdf, HMC361 https://www.analog.com/media/en/technical-documentation/data-sheets/hmc361s8g.pdf, BMT321 https://www.berex.com/Products/HighPowerAmplifier, SX1281 https://www.mouser.com/datasheet/2/761/DS_SX1280-1_V2.2-1511144.pdf, ADV7280A https://www.analog.com/media/en/technical-documentation/data-sheets/adv7280a.pdf, SiT5000 https://www.sitime.com/datasheet/SiT5000, NEO-M9N https://content.u-blox.com/sites/default/files/NEO-M9N-00B_DataSheet_UBX-19014285.pdf, MMC5983MA https://www.memsic.com/Public/Uploads/uploadfile/files/20220119/MMC5983MADatasheetRevA.pdf, ISL83488 https://www.renesas.com/us/en/document/dst/isl83483-isl83485-isl83488-isl83490-isl83491-datasheet
