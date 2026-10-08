@@ -1,6 +1,5 @@
 """Sealed-bay steady thermal network: ONE isothermal node and heat load per PCB.
 
-Component estimates are retained for bookkeeping and summed once per board.
 Predictions are average board temperatures, not chip junction temperatures.
 Run: python thermal/Avbay_Steady.py --help. Python 3.10+, numpy, scipy.
 """
