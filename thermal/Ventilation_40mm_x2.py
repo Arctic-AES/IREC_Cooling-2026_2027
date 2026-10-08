@@ -1,9 +1,4 @@
-"""Vent-hole sensitivity for two 40x10 mm 5 V fans.
-
-One fan is intake and one is exhaust, so the same through-flow passes both.
-The two fan pressure capabilities are treated in series. Inlet and outlet are
-opposite sidewall vent banks, not top-to-bottom openings.
-"""
+"""Vent-hole sensitivity for two 40x10 mm 5 V fans."""
 
 import math
 from scipy.optimize import brentq
@@ -12,18 +7,15 @@ from Avbay_Steady import board_powers
 T_INITIAL_C = 67.56
 T_AMB_C = 42.0
 
-RHO_AIR = 1.10      # kg/m^3
-CP_AIR = 1007.0     # J/(kg K)
-CD = 0.62           # sharp-edged round-hole assumption
+RHO_AIR = 1.10
+CP_AIR = 1007.0
+CD = 0.62
 
-# Noctua NF-A4x10 5V PWM class data
 FLOW_FREE_M3_H = 8.93
 STATIC_PER_FAN_MMH2O = 1.95
 POWER_PER_FAN_W = 0.30
 N_FANS = 2
 
-# Identical inlet and outlet banks on opposite sides of the bay.
-# (holes per side, hole diameter mm)
 VENT_STAGES = (
     (8, 6),
     (8, 8),
@@ -41,14 +33,12 @@ def open_area(n_holes, diameter_mm):
 
 
 def fan_pressure_pa(q_m3_s):
-    """Linearized fan curve from shutoff pressure to free-air flow."""
     q_free = FLOW_FREE_M3_H / 3600.0
     p0_pair = N_FANS * STATIC_PER_FAN_MMH2O * 9.80665
     return p0_pair * max(0.0, 1.0 - q_m3_s / q_free)
 
 
 def vent_pressure_pa(q_m3_s, area_in, area_out):
-    """Sharp-edged inlet + outlet losses in series."""
     vin = q_m3_s / (CD * area_in)
     vout = q_m3_s / (CD * area_out)
     return 0.5 * RHO_AIR * (vin**2 + vout**2)
@@ -66,7 +56,6 @@ def actual_flow_m3_h(n_holes, diameter_mm):
 
 
 def final_air_temp(flow_m3_h):
-    """Q = m_dot cp (Tbay - Tamb), including fan electrical heat."""
     p_total = float(board_powers().sum()) + N_FANS * POWER_PER_FAN_W
     mdot = RHO_AIR * (flow_m3_h / 3600.0)
     return T_AMB_C + p_total / (mdot * CP_AIR)
@@ -86,6 +75,3 @@ for n, d in VENT_STAGES:
         f'{n:>5}      {d:>2} mm   {area_mm2:>7.0f} mm^2   '
         f'{flow:>6.2f} m^3/h   {final_t:>6.2f} C   {cooling:>6.2f} C'
     )
-
-print('\nDTEG 8.1 requires adequate venting and VFRR discussion; it does not set a specific hole diameter/count.')
-print('Flow is a first-pass estimate using a linear fan curve and sharp-edged-hole losses; test the final vent geometry.')
