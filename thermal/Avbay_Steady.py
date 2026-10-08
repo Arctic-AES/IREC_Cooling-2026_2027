@@ -193,49 +193,57 @@ CASES = (
 
 
 def report(title, r):
-    geo, cfg = r['geometry'], r['settings']
-    print(f"\n{title}\nAmbient: {CF(r['T_inf'])}\nBay air: {CF(r['T_a'])}\nInner wall: {CF(r['T_w'])}")
-    for (label, ao, rw), t in zip(r['regions'], r['T_s_regions']):
-        print(f'{label}: skin {CF(t)}, outside area {ao:.6f} m^2, radial R {rw:.6f} K/W')
-    print(f'Inner cylindrical area: {geo.inner_area:.6f} m^2')
-    print('PCB      Total heat [W]  FULL-board IHG [W/m^3]  Average PCB temperature')
-    for n, p, v, t in zip(NAMES, r['P'], V, r['T_p']):
-        print(f'{n:<8}{p:14.3f}{p/v:24,.0f}  {CF(t)}')
-    print(f"Electronics {r['P'].sum():.3f} W; solar {r['Q_solar_W']:.3f} W")
-    print(f"Exterior convection {r['Q_ext_convection_W']:.3f} W; radiation {r['Q_ext_radiation_W']:.3f} W (positive outward)")
-    print(f"Maximum energy-balance residual: {r['max_residual_W']:.3e} W")
-    print('ANSYS BASELINE: simplified boards, no active component loads')
-    print(f"  Exterior cylindrical faces: inward solar Heat Flux {r['q_sun']:.3f} W/m^2")
-    print(f"  Outside Convection: h={r['h_o']:g} W/(m^2 K), bulk={CF(r['T_inf'])}")
-    print(f"  Outside Radiation / To Ambient: e={cfg.exterior_emissivity:g}, surroundings={CF(r['T_rad'])}")
-    print('  FULL-board IHG from table, once per PCB; suppress component IHG and Heat Flow.')
-    print(f"  Internal Convection: board h={cfg.h_board:g}, wall h={cfg.h_wall:g}; start bulk at {CF(r['T_a'])}.")
-    print('  Iterate bulk=sum(h*A*Tmean)/sum(h*A) until total internal convection is zero.')
-    print(f'  Internal surface radiation: PCB e={cfg.board_emissivity:g}, wall e={cfg.wall_emissivity:g}.')
-    print('  Use actual view factors; Perfect only after including real closed bay boundaries.')
-    print('  Do not prescribe inner-wall/board temperatures; initial temperature does not set steady results.')
+    print(f"\n{title}")
+    print(
+        f"Tamb={r['T_inf'] - 273.15:.2f} C | "
+        f"h={r['h_o']:.2f} W/m2K | "
+        f"qsolar={r['q_sun']:.2f} W/m2"
+    )
+    print(
+        f"Ts={r['T_s'] - 273.15:.2f} C | "
+        f"Tw={r['T_w'] - 273.15:.2f} C | "
+        f"Ta={r['T_a'] - 273.15:.2f} C"
+    )
+    print(
+        f"C6={r['T_p'][0] - 273.15:.2f} C | "
+        f"G6={r['T_p'][1] - 273.15:.2f} C | "
+        f"ENIAC={r['T_p'][2] - 273.15:.2f} C"
+    )
+    print(
+        f"P={r['P'].sum():.3f} W | "
+        f"residual={r['max_residual_W']:.2e} W"
+    )
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--length-mm', type=float, default=400.05,
                     help='Provisional modeled length; above 400.05 assumes EXPOSED coupler extension.')
-    ap.add_argument('--contact-h', type=float, default=None, help='Tube/coupler contact W/(m^2 K); default ideal')
-    ap.add_argument('--h-inside', type=float, default=3., help='Assumed internal h W/(m^2 K)')
+    ap.add_argument('--contact-h', type=float, default=None,
+                    help='Tube/coupler contact W/(m^2 K); default ideal')
+    ap.add_argument('--h-inside', type=float, default=3.,
+                    help='Assumed internal h W/(m^2 K)')
     args = ap.parse_args()
-    geo = replace(Geometry(), modeled_length_m=args.length_mm / 1000, contact_h=args.contact_h)
+
+    geo = replace(
+        Geometry(),
+        modeled_length_m=args.length_mm / 1000,
+        contact_h=args.contact_h
+    )
     cfg = replace(Settings(), h_board=args.h_inside, h_wall=args.h_inside)
     geo.regions()
-    print('PRELIMINARY: average board temperatures, no component hot spots/junction predictions.')
-    print(f'Domain length {args.length_mm:g} mm; real sealed length and bulkheads not confirmed.')
-    print('Endcap heat transfer and mounts omitted. Tube contact ideal unless --contact-h supplied.')
-    print('Coupler extension is EXPOSED.' if args.length_mm > 400.05 else '108 mm STEP coupler extension is outside default domain.')
-    print('COMPONENT BUDGET: estimates only, NOT extra simulation loads')
-    for n in NAMES:
-        print(f'\n{n}')
-        for label, p in COMPONENT_HEAT_W[n].items(): print(f'  {label:<54}{p:.3f} W')
-        print(f'  Remaining small parts: {SMALL_PARTS_HEAT_W[n]:.3f} W')
-    print('\nSame component budget in all ambient scenarios; idle-mode power not yet verified.')
+
+    p = board_powers()
+    print(
+        f"Power: C6={p[0]:.3f} W | G6={p[1]:.3f} W | "
+        f"ENIAC={p[2]:.3f} W | Total={p.sum():.3f} W"
+    )
+    print(
+        f"IHG: C6={p[0] / V[0]:,.0f} | "
+        f"G6={p[1] / V[1]:,.0f} | "
+        f"ENIAC={p[2] / V[2]:,.0f} W/m3"
+    )
+
     for title, *env in CASES:
         report(title, solve(*env, geometry=geo, settings=cfg))
 
