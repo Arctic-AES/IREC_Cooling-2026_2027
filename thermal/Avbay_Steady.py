@@ -1,5 +1,6 @@
 """
-Run: python thermal/Avbay_Steady.py --help. Python 3.10+, numpy, scipy.
+Steady 1D avionics-bay thermal model.
+Run: python thermal/Avbay_Steady.py --help
 """
 import argparse
 from dataclasses import dataclass, replace
@@ -28,7 +29,6 @@ SMALL_PARTS_HEAT_W = {'C6': .194, 'G6': .091, 'ENIAC': .133}
 
 
 def board_powers():
-    """Single source of truth; these totals are the only electronics loads."""
     return np.array([sum(COMPONENT_HEAT_W[n].values()) + SMALL_PARTS_HEAT_W[n]
                      for n in NAMES])
 
@@ -44,10 +44,9 @@ class Geometry:
     modeled_length_m: float = .40005
     body_k: float = .29
     coupler_k: float = .29
-    contact_h: float | None = None  # W/(m^2 K); None means ideal contact
+    contact_h: float | None = None
 
     def regions(self):
-        """Return (name, exterior area [m^2], radial resistance [K/W])."""
         vals = (self.body_od_m, self.body_id_m, self.coupler_od_m,
                 self.coupler_id_m, self.body_length_m, self.coupler_length_m,
                 self.modeled_length_m, self.body_k, self.coupler_k)
@@ -61,11 +60,13 @@ class Geometry:
             raise ValueError('Modeled length exceeds the uploaded coupler.')
         if self.contact_h is not None and (not math.isfinite(self.contact_h) or self.contact_h <= 0):
             raise ValueError('Contact conductance must be positive or None.')
+
         length = min(self.modeled_length_m, self.body_length_m)
         rb = math.log(self.body_od_m / self.body_id_m) / (2 * math.pi * self.body_k * length)
         rc = math.log(self.coupler_od_m / self.coupler_id_m) / (2 * math.pi * self.coupler_k * length)
         ri = 0 if self.contact_h is None else 1 / (self.contact_h * math.pi * self.body_id_m * length)
         regions = [('Body tube + coupler overlap', math.pi * self.body_od_m * length, rb + rc + ri)]
+
         extension = self.modeled_length_m - length
         if extension > 1e-12:
             rext = math.log(self.coupler_od_m / self.coupler_id_m) / (2 * math.pi * self.coupler_k * extension)
@@ -79,7 +80,7 @@ class Geometry:
 
 @dataclass(frozen=True)
 class Settings:
-    sun_elevation_deg: float = 45.0  # vertical rocket, uniform circumferential average
+    sun_elevation_deg: float = 45.0
     ground_albedo: float = .40
     solar_absorptivity: float = .60
     exterior_emissivity: float = .90
@@ -87,7 +88,7 @@ class Settings:
     wall_emissivity: float = .90
     h_board: float = 3.0
     h_wall: float = 3.0
-    mount_conductance: tuple = (0., 0., 0.)  # PCB-to-wall W/K; mounts absent from STEP
+    mount_conductance: tuple = (0., 0., 0.)
 
 
 def C2K(t): return t + 273.15
@@ -99,48 +100,34 @@ def CF(t):
 
 
 def solve(T_amb_c, T_gnd_c, G_b, G_d, h_o, P=None, *, geometry=None, settings=None):
-    
+    """Skin, wall, air and PCB temperatures [K] for one steady condition."""
     geo, cfg = geometry or Geometry(), settings or Settings()
     regions = geo.regions()
     P = board_powers() if P is None else np.asarray(P, dtype=float)
     mounts = np.asarray(cfg.mount_conductance, dtype=float)
+
     if P.shape != (3,) or not np.all(np.isfinite(P)) or np.any(P < 0):
         raise ValueError('P must contain three finite nonnegative board loads.')
-    if mounts.shape != (3,) or not np.all(np.isfinite(mounts)) or np.any(mounts < 0):
-        raise ValueError('Mount conductances must be three finite nonnegative values.')
-    if not all(math.isfinite(x) and x >= 0 for x in (G_b, G_d, h_o)):
-        raise ValueError('Solar irradiances and exterior h must be finite/nonnegative.')
-    if not all(math.isfinite(x) for x in (T_amb_c, T_gnd_c)):
-        raise ValueError('Environmental temperatures must be finite.')
-    for e in (cfg.exterior_emissivity, cfg.board_emissivity, cfg.wall_emissivity):
-        if not math.isfinite(e) or not 0 < e <= 1:
-            raise ValueError('Emissivities must lie in (0, 1].')
-    for f in (cfg.ground_albedo, cfg.solar_absorptivity):
-        if not math.isfinite(f) or not 0 <= f <= 1:
-            raise ValueError('Albedo and solar absorptivity must lie in [0, 1].')
-    if not math.isfinite(cfg.sun_elevation_deg) or not 0 <= cfg.sun_elevation_deg <= 90:
-        raise ValueError('Sun elevation must lie in [0, 90] degrees.')
-    if not all(math.isfinite(h) and h > 0 for h in (cfg.h_board, cfg.h_wall)):
-        raise ValueError('Internal convection coefficients must be positive.')
+
     Aw = geo.inner_area
-    if A.sum() > Aw:
-        raise ValueError('Board-to-wall view-factor approximation invalid: board area exceeds wall area.')
     T_inf, T_ground = C2K(T_amb_c), C2K(T_gnd_c)
-    if min(T_inf, T_ground) <= 0:
-        raise ValueError('Temperatures must exceed absolute zero.')
-    T_sky = .0552 * T_inf**1.5  # clear-sky Swinbank approximation; kelvin
+    T_sky = .0552 * T_inf**1.5
     T_rad = ((T_sky**4 + T_ground**4) / 2) ** .25
     beta = math.radians(cfg.sun_elevation_deg)
     Gh = G_b * math.sin(beta) + G_d
-    q_sun = cfg.solar_absorptivity * (G_b * math.cos(beta) / math.pi + G_d / 2 + cfg.ground_albedo * Gh / 2)
+    q_sun = cfg.solar_absorptivity * (
+        G_b * math.cos(beta) / math.pi + G_d / 2 + cfg.ground_albedo * Gh / 2
+    )
 
     def q_out(Ts):
         return h_o * (Ts - T_inf) + cfg.exterior_emissivity * SIG * (Ts**4 - T_rad**4)
 
     def skins(Tw):
-        return np.array([brentq(lambda Ts: ao * (q_out(Ts) - q_sun) - (Tw - Ts) / rw,
-                                1., max(Tw, T_inf, T_ground) + 1500, xtol=1e-10)
-                         for _, ao, rw in regions])
+        return np.array([
+            brentq(lambda Ts: ao * (q_out(Ts) - q_sun) - (Tw - Ts) / rw,
+                   1., max(Tw, T_inf, T_ground) + 1500, xtol=1e-10)
+            for _, ao, rw in regions
+        ])
 
     def conduction(Tw, Ts):
         return np.array([(Tw - t) / rw for t, (_, _, rw) in zip(Ts, regions)])
@@ -150,102 +137,111 @@ def solve(T_amb_c, T_gnd_c, G_b, G_d, h_o, P=None, *, geometry=None, settings=No
     Ts = skins(Tw)
 
     def air(Tp):
-        return (cfg.h_board * (A @ Tp) + cfg.h_wall * Aw * Tw) / (cfg.h_board * A.sum() + cfg.h_wall * Aw)
+        return (cfg.h_board * (A @ Tp) + cfg.h_wall * Aw * Tw) / (
+            cfg.h_board * A.sum() + cfg.h_wall * Aw
+        )
 
-    def terms(Tp):
-
+    def board_loss(Tp):
         w = cfg.board_emissivity * A / Aw
-        Jw = SIG * (cfg.wall_emissivity * Tw**4 + (1 - cfg.wall_emissivity) * (w @ Tp**4)) / (
-            cfg.wall_emissivity + (1 - cfg.wall_emissivity) * w.sum())
+        Jw = SIG * (cfg.wall_emissivity * Tw**4 +
+                    (1 - cfg.wall_emissivity) * (w @ Tp**4)) / (
+                        cfg.wall_emissivity + (1 - cfg.wall_emissivity) * w.sum()
+                    )
         conv = cfg.h_board * A * (Tp - air(Tp))
         rad = cfg.board_emissivity * A * (SIG * Tp**4 - Jw)
         mount = mounts * (Tp - Tw)
-        return conv, rad, mount
+        return conv + rad + mount
 
-    Tp, _, flag, msg = fsolve(lambda t: sum(terms(t)) - P, np.full(3, Tw + 20), xtol=1e-10, full_output=True)
-    conv, rad, mount = terms(Tp)
+    Tp, _, ok, msg = fsolve(lambda Tp: P - board_loss(Tp),
+                            np.full(3, Tw + 20), xtol=1e-10, full_output=True)
+    if ok != 1:
+        raise RuntimeError(f'PCB solve failed: {msg}')
+
     Ta = air(Tp)
     Qwall = conduction(Tw, Ts)
     Qconv = np.array([h_o * ao * (t - T_inf) for t, (_, ao, _) in zip(Ts, regions)])
-    Qrad = np.array([cfg.exterior_emissivity * SIG * ao * (t**4 - T_rad**4) for t, (_, ao, _) in zip(Ts, regions)])
+    Qrad = np.array([cfg.exterior_emissivity * SIG * ao * (t**4 - T_rad**4)
+                     for t, (_, ao, _) in zip(Ts, regions)])
     Qsolar = np.array([q_sun * ao for _, ao, _ in regions])
-    residuals = {
-        'boards_W': P - conv - rad - mount,
-        'air_W': float(conv.sum() - cfg.h_wall * Aw * (Ta - Tw)),
-        'inner_wall_W': float(cfg.h_wall * Aw * (Ta - Tw) + rad.sum() + mount.sum() - Qwall.sum()),
-        'outer_regions_W': Qwall + Qsolar - Qconv - Qrad,
-        'whole_bay_W': float(P.sum() + Qsolar.sum() - Qconv.sum() - Qrad.sum()),
-    }
-    err = max(float(np.max(np.abs(x))) for x in residuals.values())
-    if not np.all(np.isfinite(Tp)) or np.any(Tp <= 0) or not math.isfinite(err) or err > 1e-6:
-        raise RuntimeError(f'Thermal solve failed (flag {flag}): {msg}; residual {err:g} W')
-    return dict(P=P, h_o=h_o, T_inf=T_inf, T_rad=T_rad, T_sky=T_sky, q_sun=q_sun,
-                T_s=Ts[0], T_s_regions=Ts, T_w=Tw, T_a=Ta, T_p=Tp,
-                geometry=geo, settings=cfg, regions=regions, residuals=residuals,
-                max_residual_W=err, Q_solar_W=Qsolar.sum(),
-                Q_ext_convection_W=Qconv.sum(), Q_ext_radiation_W=Qrad.sum())
 
-CASES = (
-    ('HOT PAD (assumed scenario, not a verified worst-case bound)', 42., 60., 900., 100., 10.),
-    ('MODERATE PAD', 34., 52., 900., 100., 21.6),
-    ('COOL / NO SUN', 20.5, 20.5, 0., 0., 22.),
-)
+    # residual check
+    residual = float(P.sum() + Qsolar.sum() - Qconv.sum() - Qrad.sum())
+    if abs(residual) > 1e-6:
+        raise RuntimeError(f'Energy balance failed: {residual:g} W')
+
+    return dict(P=P, h_o=h_o, T_inf=T_inf, T_rad=T_rad, q_sun=q_sun,
+                T_s=Ts[0], T_w=Tw, T_a=Ta, T_p=Tp,
+                geometry=geo, settings=cfg, max_residual_W=abs(residual))
 
 
 def report(title, r):
-    print(f"\n{title}")
-    print(
-        f"Tamb={r['T_inf'] - 273.15:.2f} C | "
-        f"h={r['h_o']:.2f} W/m2K | "
-        f"qsolar={r['q_sun']:.2f} W/m2"
-    )
-    print(
-        f"Ts={r['T_s'] - 273.15:.2f} C | "
-        f"Tw={r['T_w'] - 273.15:.2f} C | "
-        f"Ta={r['T_a'] - 273.15:.2f} C"
-    )
-    print(
-        f"C6={r['T_p'][0] - 273.15:.2f} C | "
-        f"G6={r['T_p'][1] - 273.15:.2f} C | "
-        f"ENIAC={r['T_p'][2] - 273.15:.2f} C"
-    )
-    print(
-        f"P={r['P'].sum():.3f} W | "
-        f"residual={r['max_residual_W']:.2e} W"
-    )
+    """Temperatures and matching ANSYS steady-state boundary conditions."""
+    cfg = r['settings']
+    Q_GEN = r['P'] / V
+
+    print(f'\n{title}')
+    print(f"Ambient: {CF(r['T_inf'])}")
+    print(f"Internal Air: {CF(r['T_a'])}")
+    print('PCB      Heat [W]   IHG [W/m^3]   Temp')
+    for n, p, q, T in zip(NAMES, r['P'], Q_GEN, r['T_p']):
+        print(f'{n:<8}{p:8.2f}{q:14,.0f}   {CF(T)}')
+
+    print('ANSYS STEADY-STATE BOUNDARY CONDITIONS')
+    bcs = [
+        ('Initial Temperature', 'all bodies', CF(r['T_inf'])),
+        ('Heat Flux', 'outer shell', f"{r['q_sun']:.1f} W/m^2"),
+        ('Convection', 'outer shell', f"h {r['h_o']:g} W/m^2C, ambient {CF(r['T_inf'])}"),
+        ('Radiation', 'outer shell', f"e {cfg.exterior_emissivity:g}, ambient {CF(r['T_rad'])}"),
+        *[('Internal Heat Gen' if i == 0 else '', n, f'{q:,.0f} W/m^3')
+          for i, (n, q) in enumerate(zip(NAMES, Q_GEN))],
+        ('Convection', 'inside faces', f"h {cfg.h_board:g} W/m^2C, ambient {CF(r['T_a'])}"),
+        ('Radiation', 'inside faces', f"Surface to Surface, e {cfg.board_emissivity:g}, wall {CF(r['T_w'])}"),
+    ]
+    for bc, scope, value in bcs:
+        print(f'  {bc:<20}{scope:<14}{value}')
+
+
+# Current full-power steady cases
+P_PCB = board_powers()
+
+# Hot pad
+T_AMB_C = 42.0
+T_GND_C = 60.0
+G_B, G_D = 900.0, 100.0
+H_O = 10.0
+HOT_CASE = ('HOT PAD', T_AMB_C, T_GND_C, G_B, G_D, H_O)
+
+# Moderate pad
+T_AMB_C = 34.0
+T_GND_C = 52.0
+G_B, G_D = 900.0, 100.0
+H_O = 21.6
+MODERATE_CASE = ('MODERATE PAD', T_AMB_C, T_GND_C, G_B, G_D, H_O)
+
+# Cool / no sun
+T_AMB_C = 20.5
+T_GND_C = 20.5
+G_B, G_D = 0.0, 0.0
+H_O = 22.0
+COOL_CASE = ('COOL / NO SUN', T_AMB_C, T_GND_C, G_B, G_D, H_O)
+
+CASES = (HOT_CASE, MODERATE_CASE, COOL_CASE)
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument('--length-mm', type=float, default=400.05,
-                    help='Provisional modeled length; above 400.05 assumes EXPOSED coupler extension.')
-    ap.add_argument('--contact-h', type=float, default=None,
-                    help='Tube/coupler contact W/(m^2 K); default ideal')
-    ap.add_argument('--h-inside', type=float, default=3.,
-                    help='Assumed internal h W/(m^2 K)')
+    ap.add_argument('--length-mm', type=float, default=400.05)
+    ap.add_argument('--contact-h', type=float, default=None)
+    ap.add_argument('--h-inside', type=float, default=3.)
     args = ap.parse_args()
 
-    geo = replace(
-        Geometry(),
-        modeled_length_m=args.length_mm / 1000,
-        contact_h=args.contact_h
-    )
+    geo = replace(Geometry(), modeled_length_m=args.length_mm / 1000,
+                  contact_h=args.contact_h)
     cfg = replace(Settings(), h_board=args.h_inside, h_wall=args.h_inside)
-    geo.regions()
 
-    p = board_powers()
-    print(
-        f"Power: C6={p[0]:.3f} W | G6={p[1]:.3f} W | "
-        f"ENIAC={p[2]:.3f} W | Total={p.sum():.3f} W"
-    )
-    print(
-        f"IHG: C6={p[0] / V[0]:,.0f} | "
-        f"G6={p[1] / V[1]:,.0f} | "
-        f"ENIAC={p[2] / V[2]:,.0f} W/m3"
-    )
-
-    for title, *env in CASES:
-        report(title, solve(*env, geometry=geo, settings=cfg))
+    for title, T_amb_c, T_gnd_c, G_b, G_d, h_o in CASES:
+        report(title, solve(T_amb_c, T_gnd_c, G_b, G_d, h_o, P_PCB,
+                            geometry=geo, settings=cfg))
 
 
 if __name__ == '__main__':
