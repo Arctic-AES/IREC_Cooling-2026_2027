@@ -1,6 +1,4 @@
-"""Sealed-bay steady thermal network: ONE isothermal node and heat load per PCB.
-
-Predictions are average board temperatures, not chip junction temperatures.
+"""
 Run: python thermal/Avbay_Steady.py --help. Python 3.10+, numpy, scipy.
 """
 import argparse
@@ -11,10 +9,10 @@ from scipy.optimize import brentq, fsolve
 
 SIG = 5.670374419e-8
 NAMES = ('C6', 'G6', 'ENIAC')
-# Bare-board STEP surface areas, including edges; all block bodies omitted.
+
 A = np.array([30145.299, 29958.442, 12339.253]) * 1e-6
 V = np.array([21856.975670322, 21875.838207068, 9393.696251272]) * 1e-9
-# Preliminary user-provided operating-case heat estimates [W], NOT measured.
+
 COMPONENT_HEAT_W = {
     'C6': {'U8 TLV1117': 1.659, 'TPS563200 converter-loss allocation': .970,
            'U2 STM32H7A3': .437, 'J4 microSD': .330, 'U1 STM32H562': .286,
@@ -43,7 +41,6 @@ class Geometry:
     coupler_id_m: float = .147828
     body_length_m: float = .40005
     coupler_length_m: float = .508
-    # Provisional analysis domain: common overlap, NOT confirmed sealed length.
     modeled_length_m: float = .40005
     body_k: float = .29
     coupler_k: float = .29
@@ -102,11 +99,7 @@ def CF(t):
 
 
 def solve(T_amb_c, T_gnd_c, G_b, G_d, h_o, P=None, *, geometry=None, settings=None):
-    """Passive sealed equilibrium. G_b=direct NORMAL, G_d=diffuse horizontal.
-
-    All returned temperatures are kelvin. One inner-wall and one air node.
-    Optional extension is assumed exposed to the same environment as the tube.
-    """
+    
     geo, cfg = geometry or Geometry(), settings or Settings()
     regions = geo.regions()
     P = board_powers() if P is None else np.asarray(P, dtype=float)
@@ -152,7 +145,6 @@ def solve(T_amb_c, T_gnd_c, G_b, G_d, h_o, P=None, *, geometry=None, settings=No
     def conduction(Tw, Ts):
         return np.array([(Tw - t) / rw for t, (_, _, rw) in zip(Ts, regions)])
 
-    # Total net sidewall conduction = electronics heat. Solar enters exterior nodes.
     Tw = brentq(lambda t: conduction(t, skins(t)).sum() - P.sum(),
                 1., max(T_inf, T_ground) + 1500, xtol=1e-10)
     Ts = skins(Tw)
@@ -161,7 +153,7 @@ def solve(T_amb_c, T_gnd_c, G_b, G_d, h_o, P=None, *, geometry=None, settings=No
         return (cfg.h_board * (A @ Tp) + cfg.h_wall * Aw * Tw) / (cfg.h_board * A.sum() + cfg.h_wall * Aw)
 
     def terms(Tp):
-        # Board-to-wall Fi,w=1; reciprocal Fw,i=Ai/Aw. Board-to-board radiation omitted.
+
         w = cfg.board_emissivity * A / Aw
         Jw = SIG * (cfg.wall_emissivity * Tw**4 + (1 - cfg.wall_emissivity) * (w @ Tp**4)) / (
             cfg.wall_emissivity + (1 - cfg.wall_emissivity) * w.sum())
@@ -193,9 +185,6 @@ def solve(T_amb_c, T_gnd_c, G_b, G_d, h_o, P=None, *, geometry=None, settings=No
                 max_residual_W=err, Q_solar_W=Qsolar.sum(),
                 Q_ext_convection_W=Qconv.sum(), Q_ext_radiation_W=Qrad.sum())
 
-
-# Same electronics operating-case budget in every environmental scenario.
-# Idle-mode heat must be audited separately, not inferred from voltage scaling.
 CASES = (
     ('HOT PAD (assumed scenario, not a verified worst-case bound)', 42., 60., 900., 100., 10.),
     ('MODERATE PAD', 34., 52., 900., 100., 21.6),
