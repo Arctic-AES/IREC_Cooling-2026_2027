@@ -1,50 +1,42 @@
-"""Simple ambient-air ventilation estimate for two 40x10 mm fans."""
+"""Simple steady ventilation estimate for two 40x10 mm fans."""
 
-import math
-from Avbay_Steady import Geometry, board_powers
+from Avbay_Steady import board_powers
 
-# Fan data supplied for one fan
-FLOW_PER_FAN_M3_H = 8.93
+# Current sealed hot-case bay-air temperature
+T_INITIAL_C = 67.56
+T_AMBIENT_C = 42.0
+
+# Two 40x10 mm fans: one intake + one exhaust
+FLOW_M3_H = 8.93       # through-flow; fan free-air rating
 POWER_PER_FAN_W = 0.30
 N_FANS = 2
 
-# Simple hot-pad comparison point
-T_AMB_C = 42.0
-RHO_AIR = 1.10       # kg/m^3, approximate hot-air density
-CP_AIR = 1007.0      # J/(kg K)
+# Air properties near the hot operating range
+RHO_AIR = 1.10         # kg/m^3
+CP_AIR = 1007.0        # J/(kg K)
 
+P_ELECTRONICS_W = float(board_powers().sum())
+P_FANS_W = N_FANS * POWER_PER_FAN_W
+P_TOTAL_W = P_ELECTRONICS_W + P_FANS_W
 
-def temperature_rise(flow_m3_h, heat_w):
-    """Well-mixed steady ventilation: Q = m_dot * cp * delta_T."""
-    vdot = flow_m3_h / 3600.0
-    mdot = RHO_AIR * vdot
-    return heat_w / (mdot * CP_AIR)
+# Steady ventilation energy balance:
+# Q = m_dot * cp * (T_final - T_ambient)
+V_DOT = FLOW_M3_H / 3600.0
+M_DOT = RHO_AIR * V_DOT
+T_FINAL_C = T_AMBIENT_C + P_TOTAL_W / (M_DOT * CP_AIR)
+COOLING_C = max(0.0, T_INITIAL_C - T_FINAL_C)
 
+print('2x 40x10 mm fans - 1 intake + 1 exhaust')
+print(f'Initial bay air: {T_INITIAL_C:.2f} C')
+print(f'Outside ambient: {T_AMBIENT_C:.2f} C')
+print(f'Fan heat: {P_FANS_W:.2f} W')
+print(f'Flow: {FLOW_M3_H:.2f} m^3/h')
+print(f'Predicted ventilated bay air: {T_FINAL_C:.2f} C')
+print(f'Cooling from current bay temperature: {COOLING_C:.2f} C')
 
-def air_change_time(flow_m3_h):
-    """Ideal time to move one empty-bay volume at rated free-air flow."""
-    geo = Geometry()
-    bay_volume = math.pi * (geo.coupler_id_m / 2.0) ** 2 * geo.modeled_length_m
-    return bay_volume / (flow_m3_h / 3600.0)
-
-
-P_ELECTRONICS = float(board_powers().sum())
-P_FANS = N_FANS * POWER_PER_FAN_W
-P_TOTAL = P_ELECTRONICS + P_FANS
-
-# If both fans move air in parallel with adequate passive inlet/outlet area,
-# their free-air ratings can approximately add.
-FLOW_PARALLEL = N_FANS * FLOW_PER_FAN_M3_H
-DT_PARALLEL = temperature_rise(FLOW_PARALLEL, P_TOTAL)
-
-# If one fan is intake and one is exhaust, they are effectively in series
-# through the bay. Their free-air flow ratings do NOT add. Without fan curves,
-# use one-fan free-air flow as a simple nominal comparison.
-FLOW_IN_OUT = FLOW_PER_FAN_M3_H
-DT_IN_OUT = temperature_rise(FLOW_IN_OUT, P_TOTAL)
-
-print('2x 40x10 mm fans')
-print(f'Electronics heat: {P_ELECTRONICS:.3f} W | fan heat: {P_FANS:.3f} W')
-print(f'Parallel-flow ideal: {FLOW_PARALLEL:.2f} m^3/h | dT={DT_PARALLEL:.2f} C | air={T_AMB_C + DT_PARALLEL:.2f} C | one-volume={air_change_time(FLOW_PARALLEL):.2f} s')
-print(f'1 intake + 1 exhaust: ~{FLOW_IN_OUT:.2f} m^3/h | dT={DT_IN_OUT:.2f} C | air={T_AMB_C + DT_IN_OUT:.2f} C | one-volume={air_change_time(FLOW_IN_OUT):.2f} s')
-print('Rated free-air flow is an upper bound; vents and restrictions reduce real flow.')
+# Conservative simplifications:
+# - electronics remain at full 12.061 W operating heat
+# - 100% of fan electrical power becomes heat in the bay
+# - rated free-air flow is achieved
+# - bay air is perfectly mixed
+# - no extra wall/radiation heat rejection is credited
