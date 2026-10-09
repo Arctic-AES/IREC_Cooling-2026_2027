@@ -1,4 +1,4 @@
-# IREC Cooling 2026-2027
+# Steady-State Avionics Thermal 1D Model
 
 Avionics-bay 1D thermal model for UGA AIAA's IREC rocket, Church.
 
